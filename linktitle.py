@@ -18,9 +18,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-'''WeeChat script that automatically fetches link titles for posted URLs.'''
+"""WeeChat script that automatically fetches link titles for posted URLs."""
 
 # History:
+# 2011-05-24, Bluthund
+#   version 0.2: implemented background fetching of urls
 # 2011-05-24, Bluthund
 #   version 0.1: initial version
 
@@ -29,25 +31,28 @@ from __future__ import print_function
 try:
     import weechat
 except:
-    print('This script is supposed to be run in WeeChat.\n'
-          'You can get WeeChat at http://weechat.org.\n\n'
-          'Error: Failed to import weechat module.')
+    print("This script is supposed to be run in WeeChat.\n"
+          "You can get WeeChat at http://weechat.org.\n\n"
+          "Error: Failed to import weechat module.")
     weechat = None
 
 import urllib2
 import re
+import sys
 
-SCRIPT_NAME    = 'linktitle'
-SCRIPT_AUTHOR  = 'Bluthund <bluthund23@gmail.com>'
-SCRIPT_VERSION = '0.1'
-SCRIPT_LICENSE = 'GPL3'
-SCRIPT_DESC    = 'Show the title of incoming links.'
+SCRIPT_NAME    = "linktitle"
+SCRIPT_AUTHOR  = "Bluthund <bluthund23@gmail.com>"
+SCRIPT_VERSION = "0.2"
+SCRIPT_LICENSE = "GPL3"
+SCRIPT_DESC    = "Show the title of incoming links."
+
+SCRIPT_PREFIX = "[linktitle]"
 
 TIMEOUT = 3 # seconds
 
 # only fetch link titles for http|https schemas
 # no need for the full RFC regex (RFC 1034 & 1738); urllib2 takes care of that
-linkRegex = re.compile(r'https?://[^ ]+', re.I)
+linkRegex = re.compile(r"https?://[^ ]+", re.I)
 
 # Unescape HTML Entities; thanks to Fredrik Lundh
 # http://effbot.org/zone/re-sub.htm#unescape-html
@@ -74,32 +79,52 @@ def unescape(text):
         return text # leave as is
     return re.sub("&#?\w+;", fixup, text)
 
-def print_link_title(buf, link):
-    try:
-        req = urllib2.Request(link)
-        req.add_header('User-Agent',
-                       'WeeChat/{0}'.format(weechat.info_get('version', '')))
+def print_title_cb(buf, cmd, rc, stdout, stderr):
+    if stdout != "":
+        print_title_cb.resp += stdout
 
-        resp = urllib2.urlopen(req, None, TIMEOUT)
+    if rc >= 0:
+        body = print_title_cb.resp.translate(None, "\r\n")
+        print_title_cb.resp = ""
 
-        body = ''.join(resp.readlines()).translate(None, '\r\n')
-
-        title = body[body.find('<title>')+7:body.find('</title>')]
-        title = re.sub(r'\s+', ' ', title.strip())
+        if body.lower().find("<title>"):
+            title = body[body.lower().find("<title>")+7:body.lower().find("</title>")]
+        else:
+            title = "No Title"
+        title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
 
-        weechat.prnt(buf, '[linktitle]\t{0}'.format(title.encode('utf-8')))
-    except:
-        pass # TODO
+        weechat.prnt(buf, "{pre}\t{0}".format(title.encode("utf-8"), pre = SCRIPT_PREFIX))
+
+    return weechat.WEECHAT_RC_OK
+print_title_cb.resp = ""
+
+def print_link_title(buf, link):
+    cmd = "{exe} -c 'try: "\
+          "import urllib2; req = urllib2.Request(\"{link}\"); "\
+          "req.add_header(\"User-Agent\", \"WeeChat/{ver}\"); "\
+          "print urllib2.urlopen(req, None, {timeout}).read()\n"\
+          "except: pass'"
+    cmd = cmd.format(exe = sys.executable,
+                     link = link,
+                     ver = weechat.info_get("version", ""),
+                     timeout = TIMEOUT)
+
+    weechat.hook_process(cmd, 0, "print_title_cb", buf)
+
+    return weechat.WEECHAT_RC_OK
 
 def link_cb(data, buf, date, tags, displayed, hilight, prefix, message):
+    if prefix == SCRIPT_PREFIX:
+        return weechat.WEECHAT_RC_OK
+
     for link in linkRegex.findall(message):
         print_link_title(buf, link)
 
     return weechat.WEECHAT_RC_OK
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if weechat:
         weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
-                         SCRIPT_LICENSE, SCRIPT_DESC, '', '')
-        weechat.hook_print('', '', '', 1, 'link_cb', '')
+                         SCRIPT_LICENSE, SCRIPT_DESC, "", "")
+        weechat.hook_print("", "", "", 1, "link_cb", "")
