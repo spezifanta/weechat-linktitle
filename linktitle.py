@@ -21,6 +21,8 @@
 """WeeChat script that automatically fetches link titles for posted URLs."""
 
 # History:
+# 2011-05-24, spezi|Fanta
+#   version 0.3: display play time of youtube urls
 # 2011-05-24, Bluthund
 #   version 0.2: implemented background fetching of urls
 # 2011-05-24, Bluthund
@@ -42,7 +44,7 @@ import sys
 
 SCRIPT_NAME    = "linktitle"
 SCRIPT_AUTHOR  = "Bluthund <bluthund23@gmail.com>"
-SCRIPT_VERSION = "0.2"
+SCRIPT_VERSION = "0.3"
 SCRIPT_LICENSE = "GPL3"
 SCRIPT_DESC    = "Show the title of incoming links."
 
@@ -93,8 +95,15 @@ def print_title_cb(buf, cmd, rc, stdout, stderr):
             title = "No Title"
         title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
+        
+        # youtube
+        play_time = re.search(r'<span class="video-time">(\d*:\d\d)</span>', body);
+        if play_time is not None:
+            play_time = ' - ' + str(play_time.group(1))
+        else: 
+            play_time = ''
 
-        weechat.prnt(buf, "{pre}\t{0}".format(title.encode("utf-8"), pre = SCRIPT_PREFIX))
+        weechat.prnt(buf, "{pre}\t{0}".format(title.encode("utf-8") + play_time, pre = SCRIPT_PREFIX))
 
     return weechat.WEECHAT_RC_OK
 print_title_cb.resp = ""
