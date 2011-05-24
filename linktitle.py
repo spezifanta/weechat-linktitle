@@ -103,7 +103,7 @@ def print_link_title(buf, link):
     cmd = "{exe} -c 'try: "\
           "import urllib2; req = urllib2.Request(\"{link}\"); "\
           "req.add_header(\"User-Agent\", \"WeeChat/{ver}\"); "\
-          "print urllib2.urlopen(req, None, {timeout}).read()\n"\
+          "print urllib2.urlopen(req, None, {timeout}).read(8192)\n"\
           "except: pass'"
     cmd = cmd.format(exe = sys.executable,
                      link = link,
