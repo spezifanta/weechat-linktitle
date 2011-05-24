@@ -95,12 +95,12 @@ def print_title_cb(buf, cmd, rc, stdout, stderr):
             title = "No Title"
         title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
-        
+
         # youtube
-        play_time = re.search(r'<span class="video-time">(\d*:\d\d)</span>', body);
+        play_time = re.search(r'<span class="video-time">(\d+:\d\d)</span>', body);
         if play_time is not None:
             play_time = ' - ' + str(play_time.group(1))
-        else: 
+        else:
             play_time = ''
 
         weechat.prnt(buf, "{pre}\t{0}".format(title.encode("utf-8") + play_time, pre = SCRIPT_PREFIX))
@@ -112,7 +112,7 @@ def print_link_title(buf, link):
     cmd = "{exe} -c 'try: "\
           "import urllib2; req = urllib2.Request(\"{link}\"); "\
           "req.add_header(\"User-Agent\", \"WeeChat/{ver}\"); "\
-          "print urllib2.urlopen(req, None, {timeout}).read()\n"\
+          "print urllib2.urlopen(req, None, {timeout}).read(8192)\n"\
           "except: pass'"
     cmd = cmd.format(exe = sys.executable,
                      link = link,
@@ -136,4 +136,4 @@ if __name__ == "__main__":
     if weechat:
         weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
                          SCRIPT_LICENSE, SCRIPT_DESC, "", "")
-        weechat.hook_print("", "", "", 1, "link_cb", "")
+        weechat.hook_print("", "", "://", 1, "link_cb", "")
