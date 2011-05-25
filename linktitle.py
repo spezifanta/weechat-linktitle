@@ -32,6 +32,8 @@ import re
 import sys
 import HTMLParser
 
+from time import time
+
 SCRIPT_NAME    = "linktitle"
 SCRIPT_AUTHOR  = "Bluthund <bluthund23@gmail.com>"
 SCRIPT_VERSION = "0.2"
@@ -47,6 +49,11 @@ weechat_encoding = "utf-8" # use utf-8 as fallback
 # only fetch link titles for http|https schemas
 # no need for the full RFC regex (RFC 3986); urllib2 takes care of the rest
 linkRegex = re.compile(r"https?://[^ >]+", re.I)
+
+# url cache: dict<str(url), (int(time.time()), str(title))>
+url_cache = {}
+# only re-retrieve titles of cached URLs after this lifetime (in s)
+CACHE_LIFETIME = 6 * 60 * 60
 
 # Unescape HTML Entities; thanks to Fredrik Lundh
 # http://effbot.org/zone/re-sub.htm#unescape-html
@@ -162,6 +169,8 @@ def print_title_cb(buf, cmd, rc, stdout, stderr):
         title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
 
+        url_cache[''] = (time(), title) # TODO set key to url
+
         print_to_buffer(buf, title.encode(weechat_encoding))
 
     return weechat.WEECHAT_RC_OK
@@ -172,6 +181,10 @@ def print_to_buffer(buf, msg):
 
 
 def print_link_title(buf, link):
+    if link in url_cache and time() < url_cache[link][0] + CACHE_LIFETIME:
+        print_to_buffer(buf, url_cache[link][1])
+        return weechat.WEECHAT_RC_OK
+
     cmd = "{exe} -c 'from __future__ import print_function\n\n"\
           "try:\n"\
           "  import urllib2; req = urllib2.Request(\"{link}\")\n"\
