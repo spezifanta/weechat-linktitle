@@ -20,12 +20,6 @@
 
 """WeeChat script that automatically fetches link titles for posted URLs."""
 
-# History:
-# 2011-05-24, Bluthund
-#   version 0.2: implemented background fetching of urls
-# 2011-05-24, Bluthund
-#   version 0.1: initial version
-
 from __future__ import print_function
 
 try:
