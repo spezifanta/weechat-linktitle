@@ -109,7 +109,8 @@ def print_link_title(buf, link):
     return weechat.WEECHAT_RC_OK
 
 def link_cb(data, buf, date, tags, displayed, hilight, prefix, message):
-    if prefix == SCRIPT_PREFIX:
+    # don't look at own output or output in core buffer
+    if prefix == SCRIPT_PREFIX or buf == weechat.buffer_search_main():
         return weechat.WEECHAT_RC_OK
 
     for link in linkRegex.findall(message):
