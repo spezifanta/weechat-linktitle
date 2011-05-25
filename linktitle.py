@@ -121,4 +121,4 @@ if __name__ == "__main__":
     if weechat:
         weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
                          SCRIPT_LICENSE, SCRIPT_DESC, "", "")
-        weechat.hook_print("", "", "", 1, "link_cb", "")
+        weechat.hook_print("", "", "://", 1, "link_cb", "")
