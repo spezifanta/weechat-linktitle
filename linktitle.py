@@ -45,8 +45,8 @@ SCRIPT_PREFIX = "[linktitle]"
 TIMEOUT = 3 # seconds
 
 # only fetch link titles for http|https schemas
-# no need for the full RFC regex (RFC 1034 & 1738); urllib2 takes care of that
-linkRegex = re.compile(r"https?://[^ ]+", re.I)
+# no need for the full RFC regex (RFC 3986); urllib2 takes care of the rest
+linkRegex = re.compile(r"https?://[^ >]+", re.I)
 
 # Unescape HTML Entities; thanks to Fredrik Lundh
 # http://effbot.org/zone/re-sub.htm#unescape-html
