@@ -78,10 +78,10 @@ def print_title_cb(buf, cmd, rc, stdout, stderr):
         print_title_cb.resp += stdout
 
     if rc >= 0:
-        body = print_title_cb.resp.translate(None, "\r\n")
+        body = print_title_cb.resp.strip("\r\n")
         print_title_cb.resp = ""
 
-        if body.lower().find("<title>"):
+        if "<title>" in body:
             title = body[body.lower().find("<title>")+7:body.lower().find("</title>")]
         else:
             title = "No Title"
