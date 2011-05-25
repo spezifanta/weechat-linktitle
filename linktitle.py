@@ -88,10 +88,14 @@ def print_title_cb(buf, cmd, rc, stdout, stderr):
         title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
 
-        weechat.prnt(buf, "{pre}\t{0}".format(title.encode("utf-8"), pre = SCRIPT_PREFIX))
+        print_to_buffer(buf, title.encode("utf-8"))
 
     return weechat.WEECHAT_RC_OK
 print_title_cb.resp = ""
+
+def print_to_buffer(buf, msg):
+    weechat.prnt(buf, "{pre}\t{msg}".format(pre = SCRIPT_PREFIX, msg = msg))
+
 
 def print_link_title(buf, link):
     cmd = "{exe} -c 'try: "\
