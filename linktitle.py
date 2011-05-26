@@ -25,9 +25,6 @@ from __future__ import print_function
 try:
     import weechat
 except:
-    print("This script is supposed to be run in WeeChat.\n"
-          "You can get WeeChat at http://weechat.org.\n\n"
-          "Error: Failed to import weechat module.")
     weechat = None
 
 import urllib2
@@ -127,3 +124,7 @@ if __name__ == "__main__":
         weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
                          SCRIPT_LICENSE, SCRIPT_DESC, "", "")
         weechat.hook_print("", "", "://", 1, "link_cb", "")
+    else:
+        print("This script is supposed to be run in WeeChat.\n"
+              "You can get WeeChat at http://weechat.org.\n\n"
+              "Error: Failed to import weechat module.")
