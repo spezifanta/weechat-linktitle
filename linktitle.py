@@ -41,6 +41,8 @@ SCRIPT_PREFIX = "[linktitle]"
 
 TIMEOUT = 3 # seconds
 
+weechat_encoding = "utf-8" # use utf-8 as fallback
+
 # only fetch link titles for http|https schemas
 # no need for the full RFC regex (RFC 3986); urllib2 takes care of the rest
 linkRegex = re.compile(r"https?://[^ >]+", re.I)
@@ -85,7 +87,7 @@ def print_title_cb(buf, cmd, rc, stdout, stderr):
         title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
 
-        print_to_buffer(buf, title.encode("utf-8"))
+        print_to_buffer(buf, title.encode(weechat_encoding))
 
     return weechat.WEECHAT_RC_OK
 print_title_cb.resp = ""
@@ -123,6 +125,9 @@ if __name__ == "__main__":
     if weechat:
         weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
                          SCRIPT_LICENSE, SCRIPT_DESC, "", "")
+
+        weechat_encoding = weechat.info_get("charset_internal", "")
+
         weechat.hook_print("", "", "://", 1, "link_cb", "")
     else:
         print("This script is supposed to be run in WeeChat.\n"
