@@ -30,6 +30,7 @@ except:
 import urllib2
 import re
 import sys
+import HTMLParser
 
 SCRIPT_NAME    = "linktitle"
 SCRIPT_AUTHOR  = "Bluthund <bluthund23@gmail.com>"
@@ -72,16 +73,90 @@ def unescape(text):
         return text # leave as is
     return re.sub("&#?\w+;", fixup, text)
 
+class MetaTagParser(HTMLParser.HTMLParser):
+    # see "RFC 2616 - Hypertext Transfer Protocol -- HTTP/1.1"
+    # NOTE omitted ASCII control characters
+    token_class = r"[^()<>@,;:\\\"/[\]?={} \t]+"
+
+    contenttype_re = "({0}/{0})(?:;\s*charset=({0}))?".format(token_class)
+
+    def __init__(self):
+        self.charset = None
+        self.contenttype = None
+        HTMLParser.HTMLParser.__init__(self)
+
+    def _process_meta_tag(self, tag, attrs):
+        def parse_http_equiv(attrs):
+            for _, value in attrs:
+                m = re.match(self.contenttype_re, value)
+                if m:
+                    return m.groups()
+            return None, None
+
+        if tag != "meta":
+            return
+
+        for name, value in attrs:
+            if name == "charset":
+                self.charset = value
+            elif name == "http-equiv" and value == "content-type":
+                self.contenttype, self.charset = parse_http_equiv(attrs)
+
+    def handle_starttag(self, tag, attrs):
+        self._process_meta_tag(tag, attrs)
+
+    def handle_startendtag(self, tag, attrs):
+        self._process_meta_tag(tag, attrs)
+
+def check_meta_info(headers, body):
+    contenttype = None
+
+    if "Content-Type: " in headers:
+        pattern = "^Content-Type:\s*{0}$".format(MetaTagParser.contenttype_re)
+        m = re.search(pattern, headers, re.M)
+
+        if m.group(2): # found both: content-type and charset
+            return m.groups()
+        else:
+            contenttype = m.group(1)
+
+    p = MetaTagParser()
+    p.contenttype = contenttype
+    try:
+        p.feed(body)
+        p.close()
+    except HTMLParser.HTMLParseError:
+        pass
+    finally:
+        return p.contenttype, p.charset
+
 def print_title_cb(buf, cmd, rc, stdout, stderr):
     if stdout != "":
         print_title_cb.resp += stdout
+    if stderr != "":
+        print(stderr)
 
-    if rc >= 0:
-        body = print_title_cb.resp.strip("\r\n")
+    if rc >= 0 and len(print_title_cb.resp):
+        resp = print_title_cb.resp
         print_title_cb.resp = ""
 
-        if "<title>" in body:
-            title = body[body.lower().find("<title>")+7:body.lower().find("</title>")]
+        sep = resp.index("\n\n")
+        headers = resp[:sep+1]
+        body = resp[sep+2:].translate(None, "\r\n")
+
+        contenttype, charset = check_meta_info(headers, body)
+
+        try:
+            body = body.decode(charset);
+        except TypeError: # charset was None
+            pass
+        except LookupError: # couldn't find specified input encoding
+            # TODO this is actually really bad
+            pass # for now
+
+        if "<title>" in body.lower():
+            title = body[body.lower().find("<title>")+7:
+                         body.lower().find("</title>")]
         else:
             title = "No Title"
         title = re.sub(r"\s+", " ", title.strip())
@@ -97,15 +172,19 @@ def print_to_buffer(buf, msg):
 
 
 def print_link_title(buf, link):
-    cmd = "{exe} -c 'try: "\
-          "import urllib2; req = urllib2.Request(\"{link}\"); "\
-          "req.add_header(\"User-Agent\", \"WeeChat/{ver}\"); "\
-          "print urllib2.urlopen(req, None, {timeout}).read(8192)\n"\
+    cmd = "{exe} -c 'from __future__ import print_function\n\n"\
+          "try:\n"\
+          "  import urllib2; req = urllib2.Request(\"{link}\")\n"\
+          "  req.add_header(\"User-Agent\", \"WeeChat/{ver}\")\n"\
+          "  resp = urllib2.urlopen(req, None, {timeout})\n"\
+          "  print(resp.info())\n"\
+          "  print(resp.read({readmax}))\n"\
           "except: pass'"
     cmd = cmd.format(exe = sys.executable,
                      link = link,
                      ver = weechat.info_get("version", ""),
-                     timeout = TIMEOUT)
+                     timeout = TIMEOUT,
+                     readmax = 8192)
 
     weechat.hook_process(cmd, 0, "print_title_cb", buf)
 
