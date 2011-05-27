@@ -137,7 +137,7 @@ def check_meta_info(headers, body):
     finally:
         return p.contenttype, p.charset
 
-def print_title_cb(buf, cmd, rc, stdout, stderr):
+def print_title_cb(data, cmd, rc, stdout, stderr):
     if stdout != "":
         print_title_cb.resp += stdout
     if stderr != "":
@@ -169,16 +169,19 @@ def print_title_cb(buf, cmd, rc, stdout, stderr):
         title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
 
-        url_cache[''] = (time(), title) # TODO set key to url
+        buf = data[:data.find("\t")]
+        url = data[data.find("\t")+1:]
 
-        print_to_buffer(buf, title.encode(weechat_encoding))
+        url_cache[url] = (time(), title)
+        print_to_buffer(buf, title)
 
     return weechat.WEECHAT_RC_OK
 print_title_cb.resp = ""
 
 def print_to_buffer(buf, msg):
-    weechat.prnt(buf, "{pre}\t{msg}".format(pre = SCRIPT_PREFIX, msg = msg))
-
+    weechat.prnt(buf, "{pre}\t{msg}"
+                          .format(pre = SCRIPT_PREFIX,
+                                  msg = msg.encode(weechat_encoding)))
 
 def print_link_title(buf, link):
     if link in url_cache and time() < url_cache[link][0] + CACHE_LIFETIME:
@@ -199,7 +202,7 @@ def print_link_title(buf, link):
                      timeout = TIMEOUT,
                      readmax = 8192)
 
-    weechat.hook_process(cmd, 0, "print_title_cb", buf)
+    weechat.hook_process(cmd, 0, "print_title_cb", buf + "\t" + link)
 
     return weechat.WEECHAT_RC_OK
 
