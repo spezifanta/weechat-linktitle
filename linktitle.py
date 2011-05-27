@@ -106,7 +106,7 @@ class MetaTagParser(HTMLParser.HTMLParser):
         for name, value in attrs:
             if name == "charset":
                 self.charset = value
-            elif name == "http-equiv" and value == "content-type":
+            elif name == "http-equiv" and value.lower() == "content-type":
                 self.contenttype, self.charset = parse_http_equiv(attrs)
 
     def handle_starttag(self, tag, attrs):
