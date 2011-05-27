@@ -119,7 +119,7 @@ def check_meta_info(headers, body):
     contenttype = None
 
     if "Content-Type: " in headers:
-        pattern = "^Content-Type:\s*{0}$".format(MetaTagParser.contenttype_re)
+        pattern = "^Content-Type:\s*{0}".format(MetaTagParser.contenttype_re)
         m = re.search(pattern, headers, re.M)
 
         if m.group(2): # found both: content-type and charset
