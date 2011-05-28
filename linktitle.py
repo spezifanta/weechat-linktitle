@@ -174,6 +174,9 @@ def print_title_cb(data, cmd, rc, stdout, stderr):
 print_title_cb.resp = ""
 
 def print_to_buffer(buf, msg):
+    if len(msg) == 0:
+        return # do not print empty messages
+
     msg = msg.encode(weechat_encoding)
     weechat.prnt(buf, "{pre}\t{msg}".format(pre = SCRIPT_PREFIX, msg = msg))
 
