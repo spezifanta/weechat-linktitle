@@ -45,10 +45,6 @@ TIMEOUT = 3 # seconds
 
 weechat_encoding = "utf-8" # use utf-8 as fallback
 
-# only fetch link titles for http|https schemas
-# no need for the full RFC regex (RFC 3986); urllib2 takes care of the rest
-linkRegex = re.compile(r"https?://[^ >]+", re.I)
-
 # url cache: dict<str(url), (int(time.time()), str(title))>
 url_cache = {}
 # only re-retrieve titles of cached URLs after this lifetime (in s)
@@ -142,7 +138,7 @@ def print_title_cb(data, cmd, rc, stdout, stderr):
     if stderr != "":
         print(stderr)
 
-    if rc >= 0 and len(print_title_cb.resp):
+    if rc >= 0 and len(print_title_cb.resp) > 0:
         resp = print_title_cb.resp
         print_title_cb.resp = ""
 
@@ -234,7 +230,9 @@ def link_cb(data, buf, date, tags, displayed, hilight, prefix, message):
     if prefix == SCRIPT_PREFIX or buf == weechat.buffer_search_main():
         return weechat.WEECHAT_RC_OK
 
-    for link in linkRegex.findall(message):
+    # only fetch link titles for http|https schemas
+    # no need for full RFC regex (RFC 3986); urllib2 takes care of the rest
+    for link in re.findall("https?://[^ >]+", message, re.I):
         print_link_title(buf, link)
 
     return weechat.WEECHAT_RC_OK
