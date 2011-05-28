@@ -30,7 +30,7 @@ except ImportError:
 import HTMLParser
 import re
 import sys
-from time import time
+import time
 import urllib2
 
 SCRIPT_NAME    = "linktitle"
@@ -167,7 +167,7 @@ def print_title_cb(data, cmd, rc, stdout, stderr):
         buf = data[:data.find("\t")]
         url = data[data.find("\t")+1:]
 
-        url_cache[url] = (time(), title)
+        url_cache[url]["title"] = title
         print_to_buffer(buf, title)
 
     return weechat.WEECHAT_RC_OK
@@ -178,6 +178,8 @@ def print_to_buffer(buf, msg):
     weechat.prnt(buf, "{pre}\t{msg}".format(pre = SCRIPT_PREFIX, msg = msg))
 
 def fetch_url(url, timeout, cb, data):
+    # NOTE this function is used via reflection, change with caution;
+    #      see below for details
     def fetchit(_SUB_timeout_):
         import urllib2
         import sys
@@ -217,11 +219,16 @@ def fetch_url(url, timeout, cb, data):
     weechat.hook_process(cmd, 0, cb, data)
 
 def print_link_title(buf, link):
-    if link in url_cache and time() < url_cache[link][0] + CACHE_LIFETIME:
-        print_to_buffer(buf, url_cache[link][1])
-        return weechat.WEECHAT_RC_OK
+    def expired(link):
+        return time.time() > url_cache[link]["time"] + CACHE_LIFETIME
 
-    fetch_url(link, TIMEOUT, "print_title_cb", buf + "\t" + link)
+    if link in url_cache and not expired(link):
+        print_to_buffer(buf, url_cache[link]["title"])
+    else:
+        url_cache[link] = {"time": time.time(),
+                           "data": "",
+                           "title": ""}
+        fetch_url(link, TIMEOUT, "print_title_cb", buf + "\t" + link)
 
     return weechat.WEECHAT_RC_OK
 
