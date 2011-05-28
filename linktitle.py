@@ -27,12 +27,11 @@ try:
 except ImportError:
     weechat = None
 
-import urllib2
+import HTMLParser
 import re
 import sys
-import HTMLParser
-
 from time import time
+import urllib2
 
 SCRIPT_NAME    = "linktitle"
 SCRIPT_AUTHOR  = "Bluthund <bluthund23@gmail.com>"
