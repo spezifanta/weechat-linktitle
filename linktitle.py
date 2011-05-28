@@ -189,13 +189,13 @@ def fetch_url(url, timeout, cb, data):
         try:
             req = urllib2.Request("_SUB_url_")
             req.add_header("User-Agent", "WeeChat/_SUB_ver_")
-            with urllib2.urlopen(req, None, _SUB_timeout_) as resp:
-                print(resp.info())
+            resp = urllib2.urlopen(req, None, _SUB_timeout_)
+            print(resp.info())
 
-                s = ""
-                while "</title>" not in s.lower():
-                    s += f.read(1024)
-                print(s)
+            s = ""
+            while "</title>" not in s.lower():
+                s += resp.read(1024)
+            print(s)
         except urllib2.HTTPError, e:
             print(e.info())
             print(e.read())
@@ -209,7 +209,7 @@ def fetch_url(url, timeout, cb, data):
     # - replace placeholders w/ format()-able brace-expressions
     # - format() code
     import inspect
-    code = inspect.getsource()
+    code = inspect.getsource(fetchit)
     future_import = "from __future__ import print_function\n"
     code = re.sub(r"^.*\n", future_import, code, 1)
     code = re.sub(r"\n[ ]{8}", "\n", code)
