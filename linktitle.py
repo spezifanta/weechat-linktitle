@@ -24,7 +24,7 @@ from __future__ import print_function
 
 try:
     import weechat
-except:
+except ImportError:
     weechat = None
 
 import urllib2
@@ -179,30 +179,54 @@ def print_title_cb(data, cmd, rc, stdout, stderr):
 print_title_cb.resp = ""
 
 def print_to_buffer(buf, msg):
-    weechat.prnt(buf, "{pre}\t{msg}"
-                          .format(pre = SCRIPT_PREFIX,
-                                  msg = msg.encode(weechat_encoding)))
+    msg = msg.encode(weechat_encoding)
+    weechat.prnt(buf, "{pre}\t{msg}".format(pre = SCRIPT_PREFIX, msg = msg))
+
+def fetch_url(url, timeout, cb, data):
+    def fetchit(_SUB_timeout_):
+        import urllib2
+        import sys
+        try:
+            req = urllib2.Request("_SUB_url_")
+            req.add_header("User-Agent", "WeeChat/_SUB_ver_")
+            with urllib2.urlopen(req, None, _SUB_timeout_) as resp:
+                print(resp.info())
+
+                s = ""
+                while "</title>" not in s.lower():
+                    s += f.read(1024)
+                print(s)
+        except urllib2.HTTPError, e:
+            print(e.info())
+            print(e.read())
+        except urllib2.URLError, e:
+            print(e.reason, file=sys.stderr)
+
+    # let the voodoo begin
+    # - read source code of fetchit()
+    # - substitute def statement by future-import statement
+    # - reindent
+    # - replace placeholders w/ format()-able brace-expressions
+    # - format() code
+    import inspect
+    code = inspect.getsource()
+    future_import = "from __future__ import print_function\n"
+    code = re.sub(r"^.*\n", future_import, code, 1)
+    code = re.sub(r"\n[ ]{8}", "\n", code)
+    code = re.sub("_SUB_(\w+)_", lambda m: "{%s}" % m.group(1), code)
+    code = code.format(url = url,
+                       ver = weechat.info_get("version", ""),
+                       timeout = timeout)
+
+    cmd = "{exe} -c '{0}'".format(code, exe = sys.executable)
+    weechat.hook_process(cmd, 0, cb, data)
 
 def print_link_title(buf, link):
     if link in url_cache and time() < url_cache[link][0] + CACHE_LIFETIME:
         print_to_buffer(buf, url_cache[link][1])
         return weechat.WEECHAT_RC_OK
 
-    cmd = "{exe} -c 'from __future__ import print_function\n\n"\
-          "try:\n"\
-          "  import urllib2; req = urllib2.Request(\"{link}\")\n"\
-          "  req.add_header(\"User-Agent\", \"WeeChat/{ver}\")\n"\
-          "  resp = urllib2.urlopen(req, None, {timeout})\n"\
-          "  print(resp.info())\n"\
-          "  print(resp.read({readmax}))\n"\
-          "except: pass'"
-    cmd = cmd.format(exe = sys.executable,
-                     link = link,
-                     ver = weechat.info_get("version", ""),
-                     timeout = TIMEOUT,
-                     readmax = 8192)
-
-    weechat.hook_process(cmd, 0, "print_title_cb", buf + "\t" + link)
+    fetch_url(link, TIMEOUT, "print_title_cb", buf + "\t" + link)
 
     return weechat.WEECHAT_RC_OK
 
