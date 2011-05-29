@@ -192,10 +192,14 @@ def fetch_url(url, timeout, cb, data):
             resp = urllib2.urlopen(req, None, _SUB_timeout_)
             print(resp.info())
 
-            s = ""
-            while "</title>" not in s.lower():
-                s += resp.read(1024)
-            print(s)
+            contenttype = resp.info()["Content-Type"]
+            if "html" in contenttype or "xml" in contenttype:
+                s = ""
+                while "</title>" not in s.lower():
+                    s += resp.read(1024)
+                print(s)
+            elif contenttype.startswith("text/plain"):
+                print(resp.readline())
         except urllib2.HTTPError, e:
             print(e.info())
             print(e.read())
