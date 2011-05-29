@@ -35,7 +35,7 @@ import urllib2
 
 SCRIPT_NAME    = "linktitle"
 SCRIPT_AUTHOR  = "Bluthund <bluthund23@gmail.com>"
-SCRIPT_VERSION = "0.2"
+SCRIPT_VERSION = "0.3"
 SCRIPT_LICENSE = "GPL3"
 SCRIPT_DESC    = "Show the title of incoming links."
 
