@@ -28,6 +28,8 @@ except ImportError:
     weechat = None
 
 import HTMLParser
+import datetime
+import json
 import re
 import sys
 import time
@@ -132,6 +134,33 @@ def check_meta_info(headers, body):
     finally:
         return p.contenttype, p.charset
 
+def get_youtube_video_duration(video_url):
+    videoid_re = r"""youtu(?:\.be/|be\.com     # domain
+                     /(?:embed/|v/|watch\?v=)) # path
+                     \b([-\w]{11})\b           # video id"""
+
+    data_url = ("http://gdata.youtube.com/feeds/api/"
+                "videos/{videoid}?v=2&alt=json")
+
+    vidid = re.search(videoid_re, video_url, re.X)
+
+    if vidid:
+        data = urllib2.urlopen(data_url.format(videoid = vidid.group(1)))
+
+        md = json.load(data)
+
+        duration = int(md["entry"]["media$group"]["yt$duration"]["seconds"])
+        duration = datetime.time(hour = duration // 60 // 60,
+                                 minute = duration // 60 % 60,
+                                 second = duration % 60).isoformat()
+
+        while duration.startswith("00:"):
+            duration = duration[3:]
+
+        return duration
+    else:
+        return ""
+
 def print_title_cb(data, cmd, rc, stdout, stderr):
     if stdout != "":
         print_title_cb.resp += stdout
@@ -166,6 +195,10 @@ def print_title_cb(data, cmd, rc, stdout, stderr):
 
         buf = data[:data.find("\t")]
         url = data[data.find("\t")+1:]
+
+        video_duration = get_youtube_video_duration(url)
+        if video_duration:
+            title += " ({0})".format(video_duration)
 
         url_cache[url]["title"] = title
         print_to_buffer(buf, title)
