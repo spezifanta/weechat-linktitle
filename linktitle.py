@@ -135,9 +135,9 @@ def check_meta_info(headers, body):
         return p.contenttype, p.charset
 
 def get_youtube_video_duration(video_url):
-    videoid_re = r"""youtu(?:\.be/|be\.com     # domain
-                     /(?:embed/|v/|watch\?v=)) # path
-                     \b([-\w]{11})\b           # video id"""
+    videoid_re = r"""youtu(?:\.be/|be\.com              # domain
+                     /(?:embed/|v/|watch\?(?:.*?&)?v=)) # path
+                     \b([-\w]{11})\b                    # video id"""
 
     data_url = ("http://gdata.youtube.com/feeds/api/"
                 "videos/{videoid}?v=2&alt=json")
