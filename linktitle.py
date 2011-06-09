@@ -154,7 +154,8 @@ def get_youtube_video_duration(video_url):
                                  minute = duration // 60 % 60,
                                  second = duration % 60).isoformat()
 
-        while duration.startswith("00:"):
+        # remove hours if duration < 1h
+        if duration.startswith("00:"):
             duration = duration[3:]
 
         return duration
