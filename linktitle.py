@@ -258,7 +258,7 @@ if __name__ == "__main__":
 
         weechat_encoding = weechat.info_get("charset_internal", "")
 
-        weechat.hook_print("", "", "://", 1, "link_cb", "")
+        weechat.hook_print("", "irc_privmsg", "://", 1, "link_cb", "")
     else:
         print("This script is supposed to be run in WeeChat.\n"
               "You can get WeeChat at http://weechat.org.\n\n"
