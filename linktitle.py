@@ -133,14 +133,15 @@ def check_meta_info(headers, body):
         return p.contenttype, p.charset
 
 def print_title_cb(data, cmd, rc, stdout, stderr):
+    buf, url = data.split("\t", 1)
+
     if stdout != "":
-        print_title_cb.resp += stdout
+        url_cache[url]["data"] += stdout
     if stderr != "":
         print(stderr)
 
-    if rc >= 0 and len(print_title_cb.resp) > 0:
-        resp = print_title_cb.resp
-        print_title_cb.resp = ""
+    if rc >= 0 and len(url_cache[url]["data"]) > 0:
+        resp = url_cache[url]["data"]
 
         sep = resp.index("\n\n")
         headers = resp[:sep+1]
@@ -164,14 +165,11 @@ def print_title_cb(data, cmd, rc, stdout, stderr):
         title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
 
-        buf = data[:data.find("\t")]
-        url = data[data.find("\t")+1:]
-
         url_cache[url]["title"] = title
+        url_cache[url]["data"] = ""
         print_to_buffer(buf, title)
 
     return weechat.WEECHAT_RC_OK
-print_title_cb.resp = ""
 
 def print_to_buffer(buf, msg):
     if len(msg) == 0:
