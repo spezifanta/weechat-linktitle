@@ -28,6 +28,7 @@ except ImportError:
     weechat = None
 
 import HTMLParser
+import pickle
 import re
 import sys
 import time
@@ -80,11 +81,12 @@ class MetaTagParser(HTMLParser.HTMLParser):
     # NOTE omitted ASCII control characters
     token_class = r"[^()<>@,;:\\\"/[\]?={} \t]+"
 
-    contenttype_re = "({0}/{0})(?:;\s*charset=({0}))?".format(token_class)
+    contenttype_re = "({0}/{0})(?:;.*charset=({0}))?".format(token_class)
+
+    charset = ""
+    contenttype = ""
 
     def __init__(self):
-        self.charset = None
-        self.contenttype = None
         HTMLParser.HTMLParser.__init__(self)
 
     def _process_meta_tag(self, tag, attrs):
@@ -95,79 +97,86 @@ class MetaTagParser(HTMLParser.HTMLParser):
                     return m.groups()
             return None, None
 
-        if tag != "meta":
-            return
-
         for name, value in attrs:
+            # HTML5 <meta charset="xxx">
             if name == "charset":
                 self.charset = value
+            # <meta http-equiv="content-type">
             elif name == "http-equiv" and value.lower() == "content-type":
                 self.contenttype, self.charset = parse_http_equiv(attrs)
 
     def handle_starttag(self, tag, attrs):
-        self._process_meta_tag(tag, attrs)
+        if tag == 'meta':
+            self._process_meta_tag(tag, attrs)
 
     def handle_startendtag(self, tag, attrs):
-        self._process_meta_tag(tag, attrs)
+        if tag == 'meta':
+            self._process_meta_tag(tag, attrs)
 
 def check_meta_info(headers, body):
-    contenttype = None
+    contenttype = headers.type
+    charset = headers.getparam("charset")
 
-    if "Content-Type: " in headers:
-        pattern = "^Content-Type:\s*{0};?$".format(MetaTagParser.contenttype_re)
-        m = re.search(pattern, headers, re.M)
+    # if contenttype or charset is empty, try to find them
+    # via the information given by the document
+    if not contenttype or not charset:
+        # TODO parse xml processing instruction for encoding-attribute
+        p = MetaTagParser()
+        p.contenttype = contenttype
+        p.charset = charset
+        try:
+            p.feed(body)
+            p.close()
+        except HTMLParser.HTMLParseError:
+            pass
+        finally:
+            contenttype, charset = p.contenttype, p.charset
 
-        if m.group(2): # found both: content-type and charset
-            return m.groups()
-        else:
-            contenttype = m.group(1)
-
-    p = MetaTagParser()
-    p.contenttype = contenttype
-    try:
-        p.feed(body)
-        p.close()
-    except HTMLParser.HTMLParseError:
-        pass
-    finally:
-        return p.contenttype, p.charset
+    return contenttype, charset
 
 def print_title_cb(data, cmd, rc, stdout, stderr):
     buf, url = data.split("\t", 1)
 
     if stdout != "":
         url_cache[url]["data"] += stdout
-    if stderr != "":
-        print(stderr)
 
-    if rc >= 0 and len(url_cache[url]["data"]) > 0:
+    # NOTE rc is of type str; python example in the weechat docs is wrong
+    if int(rc) >= 0 and url_cache[url]["data"]:
+        url_cache[url]["data"] = pickle.loads(url_cache[url]["data"])
+
+        # get out of here if http response code isn't OK
+        if url_cache[url]["data"]["code"] != 200:
+            url_cache[url]["data"] = ""
+            return weechat.WEECHAT_RC_OK
+
         resp = url_cache[url]["data"]
-
-        sep = resp.index("\n\n")
-        headers = resp[:sep+1]
-        body = resp[sep+2:].translate(None, "\r\n")
+        headers = resp["headers"]
+        body = resp["body"]
 
         contenttype, charset = check_meta_info(headers, body)
 
         try:
             body = body.decode(charset);
-        except TypeError: # charset was None
-            pass
-        except LookupError: # couldn't find specified input encoding
-            # TODO this is actually really bad
-            pass # for now
+        except (LookupError, TypeError):
+            # couldn't find specified input encoding or None given
+            # try to decode using standard encoding
+            # and ignore byte-sequences that cannot be decoded
+            body = body.decode(errors = "ignore")
 
-        if "<title>" in body.lower():
+        title = ""
+        if "</title>" in body.lower():
             title = body[body.lower().find("<title>")+7:
                          body.lower().find("</title>")]
-        else:
-            title = "No Title"
+        elif contenttype == "text/plain":
+            title = body
         title = re.sub(r"\s+", " ", title.strip())
         title = unescape(title)
 
         url_cache[url]["title"] = title
         url_cache[url]["data"] = ""
-        print_to_buffer(buf, title)
+
+        if title:
+            print_to_buffer(buf, title)
 
     return weechat.WEECHAT_RC_OK
 
@@ -181,28 +190,42 @@ def print_to_buffer(buf, msg):
 def fetch_url(url, timeout, cb, data):
     # NOTE this function is used via reflection, change with caution;
     #      see below for details
-    def fetchit(_SUB_timeout_):
-        import urllib2
+    def fetchit():
+        import pickle
         import sys
+        import urllib2
+
+        data = dict()
+
         try:
             req = urllib2.Request("_SUB_url_")
-            req.add_header("User-Agent", "WeeChat/_SUB_ver_")
+            req.add_header("User-Agent", "WeeChat/_SUB_version_")
             resp = urllib2.urlopen(req, None, _SUB_timeout_)
-            print(resp.info())
-
-            contenttype = resp.info()["Content-Type"]
-            if "html" in contenttype or "xml" in contenttype:
-                s = ""
-                while "</title>" not in s.lower():
-                    s += resp.read(1024)
-                print(s)
-            elif contenttype.startswith("text/plain"):
-                print(resp.readline())
         except urllib2.HTTPError, e:
-            print(e.info())
-            print(e.read())
+            pass
         except urllib2.URLError, e:
-            print(e.reason, file=sys.stderr)
+            print(e.reason, file = sys.stderr)
+            print("url was _SUB_url_", file = sys.stderr)
+            sys.exit(1)
+
+        data["code"] = resp.code
+        data["headers"] = resp.info()
+
+        contenttype = data["headers"].type
+
+        data["body"] = ""
+        if "html" in contenttype or "xml" in contenttype:
+            while "</head>" not in data["body"].lower():
+                s = resp.read(1024)
+                if len(s) == 0:
+                    break
+                data["body"] += s
+        elif contenttype == "text/plain":
+            data["body"] = resp.readline()
+
+        data["body"] = data["body"].replace("\r", "").replace("\n", "")
+
+        pickle.dump(data, sys.stdout, protocol = 0)
 
     # let the voodoo begin
     # - read source code of fetchit()
@@ -215,9 +238,9 @@ def fetch_url(url, timeout, cb, data):
     future_import = "from __future__ import print_function\n"
     code = re.sub(r"^.*\n", future_import, code, 1)
     code = re.sub(r"\n[ ]{8}", "\n", code)
-    code = re.sub("_SUB_(\w+)_", lambda m: "{%s}" % m.group(1), code)
+    code = re.sub(r"_SUB_(\w+)_", lambda m: "{%s}" % m.group(1), code)
     code = code.format(url = url,
-                       ver = weechat.info_get("version", ""),
+                       version = weechat.info_get("version", ""),
                        timeout = timeout)
 
     cmd = "{exe} -c '{0}'".format(code, exe = sys.executable)
@@ -244,7 +267,7 @@ def link_cb(data, buf, date, tags, displayed, hilight, prefix, message):
 
     # only fetch link titles for http|https schemas
     # no need for full RFC regex (RFC 3986); urllib2 takes care of the rest
-    for link in re.findall("https?://[^ >]+", message, re.I):
+    for link in re.findall("https?://[^ \">]+", message, re.I):
         print_link_title(buf, link)
 
     return weechat.WEECHAT_RC_OK
