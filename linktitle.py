@@ -320,3 +320,4 @@ if __name__ == "__main__":
         print("This script is supposed to be run in WeeChat.\n"
               "You can get WeeChat at http://weechat.org.\n\n"
               "Error: Failed to import weechat module.")
+
