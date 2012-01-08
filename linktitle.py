@@ -163,6 +163,18 @@ def get_youtube_video_duration(video_url):
     else:
         return ""
 
+def get_twitter_status(twitter_url):
+    tweetid_re = r"twitter.com/.*?/status/(\d+)/?"
+    data_url = ("https://api.twitter.com/1/statuses/show.json?id={tweet_id}")
+
+    tweet_id = re.search(tweetid_re, twitter_url)
+
+    if tweet_id:
+        data = urllib2.urlopen(data_url.format(tweet_id=tweet_id.group(1)))
+        return json.load(data)["text"]
+    else:
+        return ""
+
 def print_title_cb(data, cmd, rc, stdout, stderr):
     buf, url = data.split("\t", 1)
 
@@ -207,6 +219,10 @@ def print_title_cb(data, cmd, rc, stdout, stderr):
         video_duration = get_youtube_video_duration(url)
         if video_duration:
             title += " ({0})".format(video_duration)
+
+        tweet = get_twitter_status(url)
+        if tweet:
+            title = tweet
 
         url_cache[url]["title"] = title
         url_cache[url]["data"] = ""
